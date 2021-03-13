@@ -20,6 +20,75 @@ const GObject = imports.gi.GObject;
 const St = imports.gi.St;
 const PopupMenu = imports.ui.popupMenu;
 const Config = imports.misc.config;
+// const Spinner =imports.ui.animation.Spinner;
+const AnimatedIcon = imports.ui.animation.AnimatedIcon;
+const Params = imports.misc.params;
+const { GLib, Gio } = imports.gi;
+const Me = imports.misc.extensionUtils.getCurrentExtension();
+
+var Spinner = GObject.registerClass(
+    class Spinner extends AnimatedIcon {
+        _init(size, params) {
+            params = Params.parse(params, {
+                animate: false,
+                hideOnStop: false,
+            });
+            // let file = Gio.File.new_for_uri('resource:///org/gnome/shell/theme/process-working.svg');
+            let file = Gio.File.new_for_path(Me.dir.get_path() + '/spinner.svg');
+            super._init(file, size);
+
+            this.opacity = 0;
+            this._animate = params.animate;
+            this._hideOnStop = params.hideOnStop;
+            this.visible = !this._hideOnStop;
+        }
+
+        _onDestroy() {
+            this._animate = false;
+            super._onDestroy();
+        }
+
+        play() {
+            this.remove_all_transitions();
+            this.show();
+
+            if (this._animate) {
+                super.play();
+                this.ease({
+                    opacity: 255,
+                    delay: SPINNER_ANIMATION_DELAY,
+                    duration: SPINNER_ANIMATION_TIME,
+                    mode: Clutter.AnimationMode.LINEAR,
+                });
+            } else {
+                this.opacity = 255;
+                super.play();
+            }
+        }
+
+        stop() {
+            this.remove_all_transitions();
+
+            if (this._animate) {
+                this.ease({
+                    opacity: 0,
+                    duration: SPINNER_ANIMATION_TIME,
+                    mode: Clutter.AnimationMode.LINEAR,
+                    onComplete: () => {
+                        super.stop();
+                        if (this._hideOnStop)
+                            this.hide();
+                    },
+                });
+            } else {
+                this.opacity = 0;
+                super.stop();
+
+                if (this._hideOnStop)
+                    this.hide();
+            }
+        }
+    });
 
 var PopupBluetoothDeviceMenuItem = GObject.registerClass(
     class PopupSwitchWithButtonMenuItem extends PopupMenu.PopupSwitchMenuItem {
@@ -110,8 +179,9 @@ var PopupBluetoothDeviceMenuItem = GObject.registerClass(
         }
 
         _buildPendingLabel() {
-            let label = new St.Label({text: _('Wait')});
-            label.hide();
+            // let label = new St.Label({text: _('Wait')});
+            let label = new Spinner(20, {});
+            // label.hide();
 
             return label;
         }
